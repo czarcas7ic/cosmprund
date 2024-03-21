@@ -9,7 +9,7 @@ require (
 	github.com/cometbft/cometbft-db v0.11.0
 	github.com/cosmos/cosmos-sdk v0.47.8
 	github.com/cosmos/gogoproto v1.4.10
-	github.com/cosmos/iavl v1.1.1
+	github.com/cosmos/iavl v1.1.1-0.20240314205139-ca1d22d11bbb
 	github.com/cosmos/ibc-go/v7 v7.3.2
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/neilotoole/errgroup v0.1.5
