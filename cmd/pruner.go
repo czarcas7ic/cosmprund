@@ -587,19 +587,21 @@ func pruneAppState(home string) error {
 		return fmt.Errorf("the database has no valid heights to prune, the latest height: %v", latestHeight)
 	}
 
-	var pruningHeights []int64
-	for height := int64(1); height < latestHeight; height++ {
-		if height < latestHeight-int64(versions) {
-			pruningHeights = append(pruningHeights, height)
-		}
-	}
+	// var pruningHeights []int64
+	// for height := int64(1); height < latestHeight; height++ {
+	// 	if height < latestHeight-int64(versions) {
+	// 		pruningHeights = append(pruningHeights, height)
+	// 	}
+	// }
 
-	if len(pruningHeights) == 0 {
-		fmt.Println("no heights to prune")
-		return nil
-	}
+	pruningHeight := []int64{latestHeight - int64(versions)}
 
-	if err = appStore.PruneStores(false, pruningHeights); err != nil {
+	// if len(pruningHeights) == 0 {
+	// 	fmt.Println("no heights to prune")
+	// 	return nil
+	// }
+
+	if err = appStore.PruneStores(false, pruningHeight); err != nil {
 		return err
 	}
 	fmt.Println("pruning application state complete")
