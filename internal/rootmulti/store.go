@@ -653,7 +653,8 @@ func (rs *Store) PruneStores(clearPruningManager bool, pruningHeights []int64) (
 		}
 
 		if errCause := errors.Cause(err); errCause != nil && errCause != iavltree.ErrVersionDoesNotExist {
-			return err
+			fmt.Println("failed to prune store", "keyName", key.Name(), "err", err)
+			//return err
 		}
 	}
 	return nil
