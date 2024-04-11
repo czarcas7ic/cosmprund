@@ -209,7 +209,7 @@ func (rs *Store) LoadVersion(ver int64) error {
 func (rs *Store) loadVersion(ver int64, upgrades *types.StoreUpgrades) error {
 	infos := make(map[string]types.StoreInfo)
 
-	fmt.Println("loadVersion", "ver", ver)
+	rs.logger.Debug("loadVersion", "ver", ver)
 	cInfo := &types.CommitInfo{}
 
 	// load old data if we are not version 0
@@ -246,7 +246,7 @@ func (rs *Store) loadVersion(ver int64, upgrades *types.StoreUpgrades) error {
 	for _, key := range storesKeys {
 		storeParams := rs.storesParams[key]
 		commitID := rs.getCommitID(infos, key.Name())
-		fmt.Println("loadVersion commitID", "key", key, "ver", ver, "hash", fmt.Sprintf("%x", commitID.Hash))
+		rs.logger.Debug("loadVersion commitID", "key", key, "ver", ver, "hash", fmt.Sprintf("%x", commitID.Hash))
 
 		// If it has been added, set the initial version
 		if upgrades.IsAdded(key.Name()) || upgrades.RenamedFrom(key.Name()) != "" {
@@ -448,10 +448,12 @@ func (rs *Store) Commit() types.CommitID {
 	}
 
 	if rs.commitHeader.Height != version {
-		fmt.Println("commit header and version mismatch", "header_height", rs.commitHeader.Height, "version", version)
+		rs.logger.Debug("commit header and version mismatch", "header_height", rs.commitHeader.Height, "version", version)
 	}
 
+	rs.SetCommitting()
 	rs.lastCommitInfo = commitStores(version, rs.stores, rs.removalMap)
+	rs.UnsetCommitting()
 	rs.lastCommitInfo.Timestamp = rs.commitHeader.Time
 	defer rs.flushMetadata(rs.db, version, rs.lastCommitInfo)
 
@@ -468,12 +470,26 @@ func (rs *Store) Commit() types.CommitID {
 	rs.removalMap = make(map[types.StoreKey]bool)
 
 	if err := rs.handlePruning(version); err != nil {
-		panic(err)
+		rs.logger.Info("pruning failed at height", version, "err", err)
 	}
 
 	return types.CommitID{
 		Version: version,
 		Hash:    rs.lastCommitInfo.Hash(),
+	}
+}
+
+// SetCommitting implements Committer/CommitStore.
+func (rs *Store) SetCommitting() {
+	for _, store := range rs.stores {
+		store.SetCommitting()
+	}
+}
+
+// UnsetCommitting implements Committer/CommitStore.
+func (rs *Store) UnsetCommitting() {
+	for _, store := range rs.stores {
+		store.UnsetCommitting()
 	}
 }
 
@@ -606,8 +622,8 @@ func (rs *Store) handlePruning(version int64) error {
 	if !rs.pruningManager.ShouldPruneAtHeight(version) {
 		return nil
 	}
-	fmt.Println("prune start", "height", version)
-	defer fmt.Println("prune end", "height", version)
+	rs.logger.Info("prune start", "height", version)
+	defer rs.logger.Info("prune end", "height", version)
 	return rs.PruneStores(true, nil)
 }
 
@@ -622,22 +638,22 @@ func (rs *Store) PruneStores(clearPruningManager bool, pruningHeights []int64) (
 		}
 
 		if len(heights) == 0 {
-			fmt.Println("no heights to be pruned from pruning manager")
+			rs.logger.Debug("no heights to be pruned from pruning manager")
 		}
 
 		pruningHeights = append(pruningHeights, heights...)
 	}
 
 	if len(pruningHeights) == 0 {
-		fmt.Println("no heights need to be pruned")
+		rs.logger.Debug("no heights need to be pruned")
 		return nil
 	}
 
+	rs.logger.Debug("pruning store", "heights", pruningHeights)
 	pruneHeight := pruningHeights[len(pruningHeights)-1]
-	fmt.Println("deleting versions to", "pruneHeight", pruneHeight)
 
 	for key, store := range rs.stores {
-		fmt.Println("pruning store", "key", key) // Also log store.name (a private variable)?
+		rs.logger.Debug("pruning store", "key", key) // Also log store.name (a private variable)?
 
 		// If the store is wrapped with an inter-block cache, we must first unwrap
 		// it to get the underlying IAVL store.
@@ -804,7 +820,7 @@ func (rs *Store) Snapshot(height uint64, protoWriter protoio.Writer) error {
 	// and the following messages contain a SnapshotNode (i.e. an ExportNode). Store changes
 	// are demarcated by new SnapshotStore items.
 	for _, store := range stores {
-		fmt.Println("starting snapshot", "store", store.name, "height", height)
+		rs.logger.Debug("starting snapshot", "store", store.name, "height", height)
 		exporter, err := store.Export(int64(height))
 		if err != nil {
 			rs.logger.Error("snapshot failed; exporter error", "store", store.name, "err", err)
@@ -826,7 +842,7 @@ func (rs *Store) Snapshot(height uint64, protoWriter protoio.Writer) error {
 		for {
 			node, err := exporter.Next()
 			if err == iavltree.ErrorExportDone {
-				fmt.Println("snapshot Done", "store", store.name, "nodeCount", nodeCount)
+				rs.logger.Debug("snapshot Done", "store", store.name, "nodeCount", nodeCount)
 				nodeCount = 0
 				break
 			} else if err != nil {
@@ -893,7 +909,7 @@ loop:
 			}
 			defer importer.Close()
 			// Importer height must reflect the node height (which usually matches the block height, but not always)
-			fmt.Println("restoring snapshot", "store", item.Store.Name)
+			rs.logger.Debug("restoring snapshot", "store", item.Store.Name)
 
 		case *snapshottypes.SnapshotItem_IAVL:
 			if importer == nil {
@@ -960,7 +976,7 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 			// If the whitelist is not empty, enable fast nodes for only the modules in the whitelist.
 			disabledFastNodes = true
 			if _, ok := rs.iavlFastNodeModuleWhitelist[key.Name()]; ok {
-				fmt.Println("fast node enabled for module", "module", key.Name())
+				rs.logger.Info("fast node enabled for module", "module", key.Name())
 				disabledFastNodes = false
 			}
 		}
@@ -1086,14 +1102,14 @@ func (rs *Store) GetCommitInfo(ver int64) (*types.CommitInfo, error) {
 }
 
 func (rs *Store) flushMetadata(db dbm.DB, version int64, cInfo *types.CommitInfo) {
-	fmt.Println("flushing metadata", "height", version)
+	rs.logger.Debug("flushing metadata", "height", version)
 	batch := db.NewBatch()
 	defer batch.Close()
 
 	if cInfo != nil {
 		flushCommitInfo(batch, version, cInfo)
 	} else {
-		fmt.Println("commitInfo is nil, not flushed", "height", version)
+		rs.logger.Debug("commitInfo is nil, not flushed", "height", version)
 	}
 
 	flushLatestVersion(batch, version)
@@ -1101,7 +1117,7 @@ func (rs *Store) flushMetadata(db dbm.DB, version int64, cInfo *types.CommitInfo
 	if err := batch.WriteSync(); err != nil {
 		panic(fmt.Errorf("error on batch write %w", err))
 	}
-	fmt.Println("flushing metadata finished", "height", version)
+	rs.logger.Debug("flushing metadata finished", "height", version)
 }
 
 type storeParams struct {
