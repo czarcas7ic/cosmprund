@@ -5,37 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/cometbft/cometbft/libs/log"
-	"github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	packetforwardtypes "github.com/cosmos/ibc-apps/middleware/packet-forward-middleware/v7/packetforward/types"
-	icqtypes "github.com/cosmos/ibc-apps/modules/async-icq/v7/types"
-	icahosttypes "github.com/cosmos/ibc-go/v7/modules/apps/27-interchain-accounts/host/types"
-	ibctransfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	ibchost "github.com/cosmos/ibc-go/v7/modules/core/exported"
-
 	db "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/state"
 	tmstore "github.com/cometbft/cometbft/store"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
-	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
-	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	evidencetypes "github.com/cosmos/cosmos-sdk/x/evidence/types"
-	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/neilotoole/errgroup"
 	"github.com/spf13/cobra"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-
-	"github.com/binaryholdings/cosmos-pruner/internal/rootmulti"
 )
 
 // load db
@@ -52,14 +27,14 @@ func pruneCmd() *cobra.Command {
 			ctx := cmd.Context()
 			errs, _ := errgroup.WithContext(ctx)
 			var err error
-			if tendermint {
-				errs.Go(func() error {
-					if err = pruneTMData(args[0]); err != nil {
-						return err
-					}
-					return nil
-				})
-			}
+			// if tendermint {
+			// 	errs.Go(func() error {
+			// 		if err = pruneTMData(args[0]); err != nil {
+			// 			return err
+			// 		}
+			// 		return nil
+			// 	})
+			// }
 
 			if cosmosSdk {
 				err = pruneAppState(args[0])
@@ -93,83 +68,83 @@ func pruneAppState(home string) error {
 		return err
 	}
 
-	//TODO: need to get all versions in the store, setting randomly is too slow
-	fmt.Println("pruning application state")
+	// //TODO: need to get all versions in the store, setting randomly is too slow
+	// fmt.Println("pruning application state")
 
-	// only mount keys from core sdk
-	// todo allow for other keys to be mounted
-	keys := types.NewKVStoreKeys(
-		authtypes.StoreKey, banktypes.StoreKey, authzkeeper.StoreKey, stakingtypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey, ibchost.StoreKey,
-		icahosttypes.StoreKey,
-		icqtypes.StoreKey,
-		evidencetypes.StoreKey, minttypes.StoreKey, govtypes.StoreKey, ibctransfertypes.StoreKey,
-		packetforwardtypes.StoreKey,
-		paramstypes.StoreKey, consensusparamtypes.StoreKey, capabilitytypes.StoreKey, crisistypes.StoreKey, upgradetypes.StoreKey,
-		// feegrant.StoreKey,
-	)
+	// // only mount keys from core sdk
+	// // todo allow for other keys to be mounted
+	// keys := types.NewKVStoreKeys(
+	// 	authtypes.StoreKey, banktypes.StoreKey, authzkeeper.StoreKey, stakingtypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey, ibchost.StoreKey,
+	// 	icahosttypes.StoreKey,
+	// 	icqtypes.StoreKey,
+	// 	evidencetypes.StoreKey, minttypes.StoreKey, govtypes.StoreKey, ibctransfertypes.StoreKey,
+	// 	packetforwardtypes.StoreKey,
+	// 	paramstypes.StoreKey, consensusparamtypes.StoreKey, capabilitytypes.StoreKey, crisistypes.StoreKey, upgradetypes.StoreKey,
+	// 	// feegrant.StoreKey,
+	// )
 
-	if app == "osmosis" {
-		osmoKeys := types.NewKVStoreKeys(
-			"downtimedetector",
-			"hooks-for-ibc",
-			"lockup", //lockuptypes.StoreKey,
-			"concentratedliquidity",
-			"gamm", // gammtypes.StoreKey,
-			"cosmwasmpool",
-			"poolmanager",
-			"twap",
-			"epochs", // epochstypes.StoreKey,
-			"protorev",
-			"txfees",         // txfeestypes.StoreKey,
-			"incentives",     // incentivestypes.StoreKey,
-			"poolincentives", //poolincentivestypes.StoreKey,
-			"tokenfactory",   //tokenfactorytypes.StoreKey,
-			"valsetpref",
-			"superfluid", // superfluidtypes.StoreKey,
-			"wasm",       // wasm.StoreKey,
-			//"rate-limited-ibc", // there is no store registered for this module
-		)
-		for key, value := range osmoKeys {
-			keys[key] = value
-		}
-	}
+	// if app == "osmosis" {
+	// 	osmoKeys := types.NewKVStoreKeys(
+	// 		"downtimedetector",
+	// 		"hooks-for-ibc",
+	// 		"lockup", //lockuptypes.StoreKey,
+	// 		"concentratedliquidity",
+	// 		"gamm", // gammtypes.StoreKey,
+	// 		"cosmwasmpool",
+	// 		"poolmanager",
+	// 		"twap",
+	// 		"epochs", // epochstypes.StoreKey,
+	// 		"protorev",
+	// 		"txfees",         // txfeestypes.StoreKey,
+	// 		"incentives",     // incentivestypes.StoreKey,
+	// 		"poolincentives", //poolincentivestypes.StoreKey,
+	// 		"tokenfactory",   //tokenfactorytypes.StoreKey,
+	// 		"valsetpref",
+	// 		"superfluid", // superfluidtypes.StoreKey,
+	// 		"wasm",       // wasm.StoreKey,
+	// 		//"rate-limited-ibc", // there is no store registered for this module
+	// 	)
+	// 	for key, value := range osmoKeys {
+	// 		keys[key] = value
+	// 	}
+	// }
 
-	// TODO: cleanup app state
-	appStore := rootmulti.NewStore(appDB, log.NewNopLogger())
+	// // TODO: cleanup app state
+	// appStore := rootmulti.NewStore(appDB, log.NewNopLogger())
 
-	for _, value := range keys {
-		appStore.MountStoreWithDB(value, storetypes.StoreTypeIAVL, nil)
-	}
+	// for _, value := range keys {
+	// 	appStore.MountStoreWithDB(value, storetypes.StoreTypeIAVL, nil)
+	// }
 
-	err = appStore.LoadLatestVersion()
-	if err != nil {
-		return err
-	}
+	// err = appStore.LoadLatestVersion()
+	// if err != nil {
+	// 	return err
+	// }
 
-	latestHeight := rootmulti.GetLatestVersion(appDB)
-	// valid heights should be greater than 0.
-	if latestHeight <= 0 {
-		return fmt.Errorf("the database has no valid heights to prune, the latest height: %v", latestHeight)
-	}
+	// latestHeight := rootmulti.GetLatestVersion(appDB)
+	// // valid heights should be greater than 0.
+	// if latestHeight <= 0 {
+	// 	return fmt.Errorf("the database has no valid heights to prune, the latest height: %v", latestHeight)
+	// }
 
-	var pruningHeights []int64
-	for height := int64(1); height < latestHeight; height++ {
-		if height < latestHeight-int64(versions) {
-			pruningHeights = append(pruningHeights, height)
-		}
-	}
+	// var pruningHeights []int64
+	// for height := int64(1); height < latestHeight; height++ {
+	// 	if height < latestHeight-int64(versions) {
+	// 		pruningHeights = append(pruningHeights, height)
+	// 	}
+	// }
 
-	//pruningHeight := []int64{latestHeight - int64(versions)}
+	// //pruningHeight := []int64{latestHeight - int64(versions)}
 
-	if len(pruningHeights) == 0 {
-		fmt.Println("no heights to prune")
-		return nil
-	}
+	// if len(pruningHeights) == 0 {
+	// 	fmt.Println("no heights to prune")
+	// 	return nil
+	// }
 
-	if err = appStore.PruneStores(false, pruningHeights); err != nil {
-		return err
-	}
-	fmt.Println("pruning application state complete")
+	// if err = appStore.PruneStores(false, pruningHeights); err != nil {
+	// 	return err
+	// }
+	// fmt.Println("pruning application state complete")
 
 	fmt.Println("compacting application state")
 	if err := appDB.Compact(nil, nil); err != nil {
